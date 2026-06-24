@@ -32,6 +32,7 @@ setup(
             'mls_node            = pointcloud_builder.mls_node:main',
             'pointcleannet_node  = pointcloud_builder.pointcleannet_node:main',
             'icp_node            = pointcloud_builder.icp_node:main',
+            'localize_node       = pointcloud_builder.localize_node:main',
         ],
     },
 )
