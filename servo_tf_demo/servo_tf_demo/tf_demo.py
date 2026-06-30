@@ -31,11 +31,18 @@ class ServoManager(Node):
         self.declare_parameter('scan_offset', 28)   # degrees each side of center
         self.declare_parameter('sweep_speed', 10.0) # degrees per second
         self.declare_parameter('step_size', 1.0)    # degrees moved per timer tick (can be < 1)
+        # map → base_link static translation (metres) and rotation (degrees)
+        self.declare_parameter('base_x',     0.0)
+        self.declare_parameter('base_y',     0.0)
+        self.declare_parameter('base_z',     1.0)
+        self.declare_parameter('base_roll',  0.0)
+        self.declare_parameter('base_pitch', 0.0)
+        self.declare_parameter('base_yaw',   0.0)
         # base_link → servo_link static translation (metres) and rotation (degrees)
         self.declare_parameter('servo_x',     0.0)
         self.declare_parameter('servo_y',     0.0)
-        self.declare_parameter('servo_z',     0.05)
-        self.declare_parameter('servo_roll',  0.0)
+        self.declare_parameter('servo_z',     -0.05)
+        self.declare_parameter('servo_roll',  180.0)
         self.declare_parameter('servo_pitch', 0.0)
         self.declare_parameter('servo_yaw',   0.0)
 
@@ -43,6 +50,12 @@ class ServoManager(Node):
         scan_offset      = self.get_parameter('scan_offset').value
         sweep_speed      = self.get_parameter('sweep_speed').value
         self.step_size   = self.get_parameter('step_size').value
+        self.base_x      = self.get_parameter('base_x').value
+        self.base_y      = self.get_parameter('base_y').value
+        self.base_z      = self.get_parameter('base_z').value
+        self.base_roll   = math.radians(self.get_parameter('base_roll').value)
+        self.base_pitch  = math.radians(self.get_parameter('base_pitch').value)
+        self.base_yaw    = math.radians(self.get_parameter('base_yaw').value)
         self.servo_x     = self.get_parameter('servo_x').value
         self.servo_y     = self.get_parameter('servo_y').value
         self.servo_z     = self.get_parameter('servo_z').value
@@ -86,8 +99,16 @@ class ServoManager(Node):
         t1.header.stamp    = now
         t1.header.frame_id = 'map'
         t1.child_frame_id  = 'base_link'
-        t1.transform.translation.z = 1.0
-        t1.transform.rotation.w    = 1.0
+        t1.transform.translation.x = self.base_x
+        t1.transform.translation.y = self.base_y
+        t1.transform.translation.z = self.base_z
+        cr, sr = math.cos(self.base_roll  / 2), math.sin(self.base_roll  / 2)
+        cp, sp = math.cos(self.base_pitch / 2), math.sin(self.base_pitch / 2)
+        cy, sy = math.cos(self.base_yaw   / 2), math.sin(self.base_yaw   / 2)
+        t1.transform.rotation.x = sr * cp * cy - cr * sp * sy
+        t1.transform.rotation.y = cr * sp * cy + sr * cp * sy
+        t1.transform.rotation.z = cr * cp * sy - sr * sp * cy
+        t1.transform.rotation.w = cr * cp * cy + sr * sp * sy
 
         t2 = TransformStamped()
         t2.header.stamp    = now

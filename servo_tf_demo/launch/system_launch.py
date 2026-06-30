@@ -7,8 +7,10 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
+    ExecuteProcess,
     IncludeLaunchDescription,
     LogInfo,
+    OpaqueFunction,
     RegisterEventHandler,
     TimerAction,
 )
@@ -29,14 +31,21 @@ if os.path.exists(_SETUP):
             _k, _, _v = _line.partition('=')
             os.environ.setdefault(_k, _v)
 
+_ROSBAG_TOPICS = [
+    '/scan',
+    '/full_cloud',
+    '/scan_complete',
+    '/tf',
+    '/tf_static',
+    '/servo_serial',
+]
+
 
 def generate_launch_description():
 
     pkg = get_package_share_directory('servo_tf_demo')
 
     # ---------------------------------------------------------------- args
-    # Override at launch time:
-    #   ros2 launch servo_tf_demo system_launch.py scan_offset:=20 sweep_speed:=15.0
 
     center_angle_arg = DeclareLaunchArgument(
         'center_angle',
@@ -58,6 +67,36 @@ def generate_launch_description():
         default_value='1.0',
         description='Degrees moved per timer tick — use < 1.0 for finer angular sampling'
     )
+    base_x_arg = DeclareLaunchArgument(
+        'base_x',
+        default_value='0.0',
+        description='X position of base_link relative to map (metres)'
+    )
+    base_y_arg = DeclareLaunchArgument(
+        'base_y',
+        default_value='0.0',
+        description='Y position of base_link relative to map (metres)'
+    )
+    base_z_arg = DeclareLaunchArgument(
+        'base_z',
+        default_value='1.0',
+        description='Z position (height) of base_link relative to map (metres)'
+    )
+    base_roll_arg = DeclareLaunchArgument(
+        'base_roll',
+        default_value='0.0',
+        description='Roll of base_link relative to map (degrees)'
+    )
+    base_pitch_arg = DeclareLaunchArgument(
+        'base_pitch',
+        default_value='0.0',
+        description='Pitch of base_link relative to map (degrees)'
+    )
+    base_yaw_arg = DeclareLaunchArgument(
+        'base_yaw',
+        default_value='0.0',
+        description='Yaw of base_link relative to map (degrees)'
+    )
     servo_x_arg = DeclareLaunchArgument(
         'servo_x',
         default_value='0.0',
@@ -70,12 +109,12 @@ def generate_launch_description():
     )
     servo_z_arg = DeclareLaunchArgument(
         'servo_z',
-        default_value='0.05',
-        description='Z offset (height) of servo_link relative to base_link (metres)'
+        default_value='-0.05',
+        description='Z offset of servo_link relative to base_link (metres)'
     )
     servo_roll_arg = DeclareLaunchArgument(
         'servo_roll',
-        default_value='0.0',
+        default_value='180.0',
         description='Roll of servo_link relative to base_link (degrees)'
     )
     servo_pitch_arg = DeclareLaunchArgument(
@@ -88,11 +127,27 @@ def generate_launch_description():
         default_value='0.0',
         description='Yaw of servo_link relative to base_link (degrees)'
     )
+    output_mode_arg = DeclareLaunchArgument(
+        'output_mode',
+        default_value='rviz',
+        description='Output mode: "rviz" to visualise live in RViz2, "rosbag" to record topics to disk'
+    )
+    bag_path_arg = DeclareLaunchArgument(
+        'bag_path',
+        default_value=os.path.expanduser('~/ros2_bags/scan'),
+        description='Output path for the rosbag (only used when output_mode:=rosbag)'
+    )
 
     center_angle = LaunchConfiguration('center_angle')
     scan_offset  = LaunchConfiguration('scan_offset')
     sweep_speed  = LaunchConfiguration('sweep_speed')
     step_size    = LaunchConfiguration('step_size')
+    base_x       = LaunchConfiguration('base_x')
+    base_y       = LaunchConfiguration('base_y')
+    base_z       = LaunchConfiguration('base_z')
+    base_roll    = LaunchConfiguration('base_roll')
+    base_pitch   = LaunchConfiguration('base_pitch')
+    base_yaw     = LaunchConfiguration('base_yaw')
     servo_x      = LaunchConfiguration('servo_x')
     servo_y      = LaunchConfiguration('servo_y')
     servo_z      = LaunchConfiguration('servo_z')
@@ -128,6 +183,12 @@ def generate_launch_description():
             'scan_offset':  scan_offset,
             'sweep_speed':  sweep_speed,
             'step_size':    step_size,
+            'base_x':       base_x,
+            'base_y':       base_y,
+            'base_z':       base_z,
+            'base_roll':    base_roll,
+            'base_pitch':   base_pitch,
+            'base_yaw':     base_yaw,
             'servo_x':      servo_x,
             'servo_y':      servo_y,
             'servo_z':      servo_z,
@@ -144,14 +205,6 @@ def generate_launch_description():
         output='screen',
     )
 
-    rviz2 = Node(
-        package='rviz2',
-        executable='rviz2',
-        name='rviz2',
-        arguments=['-d', os.path.join(pkg, 'rviz', 'system.rviz')],
-        output='screen',
-    )
-
     save_cloud = Node(
         package='pointcloud_builder',
         executable='save_cloud',
@@ -159,13 +212,15 @@ def generate_launch_description():
         output='screen',
     )
 
-    # --------------------------------------------------------- crash handlers
+    # --------------------------------------------------------- crash helpers
 
     def _crash(name, hint=''):
         suffix = f'  Hint: {hint}' if hint else ''
         return [LogInfo(msg=f'\n[CRASH] {name} has exited unexpectedly!{suffix}\n')]
 
-    handlers = [
+    # --------------------------------------------------------- common crash handlers (always registered)
+
+    common_handlers = [
         RegisterEventHandler(OnProcessExit(
             target_action=serial_bridge,
             on_exit=_crash(
@@ -181,11 +236,48 @@ def generate_launch_description():
             target_action=cloud_bld,
             on_exit=_crash('cloud_builder')
         )),
-        RegisterEventHandler(OnProcessExit(
-            target_action=rviz2,
-            on_exit=_crash('rviz2', 'RViz2closed or crashed.')
-        )),
     ]
+
+    # ------------------------------------------------- output-mode branching (resolved at launch time)
+
+    def output_mode_actions(context, *args, **kwargs):
+        mode     = LaunchConfiguration('output_mode').perform(context)
+        bag_path = LaunchConfiguration('bag_path').perform(context)
+
+        if mode == 'rosbag':
+            rosbag = ExecuteProcess(
+                cmd=['ros2', 'bag', 'record', '-o', bag_path, *_ROSBAG_TOPICS],
+                output='screen',
+            )
+            return [
+                TimerAction(period=4.0, actions=[
+                    LogInfo(msg=f'[system_launch] t=4  Starting cloud_builder, save_cloud and rosbag recorder → {bag_path}'),
+                    cloud_bld,
+                    save_cloud,
+                    rosbag,
+                ]),
+            ]
+
+        # default: rviz
+        rviz2 = Node(
+            package='rviz2',
+            executable='rviz2',
+            name='rviz2',
+            arguments=['-d', os.path.join(pkg, 'rviz', 'system.rviz')],
+            output='screen',
+        )
+        return [
+            TimerAction(period=4.0, actions=[
+                LogInfo(msg='[system_launch] t=4  Starting cloud_builder, RViz2 and save_cloud...'),
+                cloud_bld,
+                rviz2,
+                save_cloud,
+            ]),
+            RegisterEventHandler(OnProcessExit(
+                target_action=rviz2,
+                on_exit=_crash('rviz2', 'RViz2 closed or crashed.')
+            )),
+        ]
 
     # ------------------------------------------------------- sequenced startup
 
@@ -194,12 +286,20 @@ def generate_launch_description():
         scan_offset_arg,
         sweep_speed_arg,
         step_size_arg,
+        base_x_arg,
+        base_y_arg,
+        base_z_arg,
+        base_roll_arg,
+        base_pitch_arg,
+        base_yaw_arg,
         servo_x_arg,
         servo_y_arg,
         servo_z_arg,
         servo_roll_arg,
         servo_pitch_arg,
         servo_yaw_arg,
+        output_mode_arg,
+        bag_path_arg,
 
         # t = 0 s — lidar + serial bridge
         LogInfo(msg='[system_launch] t=0  Starting lidar and serial bridge...'),
@@ -212,13 +312,8 @@ def generate_launch_description():
             servo_mgr,
         ]),
 
-        # t = 4 s — cloud_builder + rviz2 (needs TF tree + /scan)
-        TimerAction(period=4.0, actions=[
-            LogInfo(msg='[system_launch] t=4  Starting cloud_builder, RViz2 and save_cloud...'),
-            cloud_bld,
-            rviz2,
-            save_cloud,
-        ]),
+        # t = 4 s — output-mode-dependent nodes (rviz or rosbag)
+        OpaqueFunction(function=output_mode_actions),
 
-        *handlers,
+        *common_handlers,
     ])

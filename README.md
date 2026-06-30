@@ -67,10 +67,36 @@ echo "source ~/ros2_ws/install/setup.bash" >> ~/.bashrc
 
 ## Running the Full Scan Pipeline
 
-The `servo_tf_demo` package provides a single launch file that starts everything in the correct order:
+The `servo_tf_demo` package provides a single launch file that starts everything in the correct order.
+
+**Minimal command — headless (drone / Jetson, RPLidar + Arduino connected):**
 
 ```bash
-ros2 launch servo_tf_demo system_launch.py
+ros2 launch servo_tf_demo system_launch.py output_mode:=rosbag
+```
+
+**Full explicit command with every parameter:**
+
+```bash
+ros2 launch servo_tf_demo system_launch.py \
+  output_mode:=rosbag \
+  bag_path:=~/ros2_bags/scan \
+  center_angle:=127 \
+  scan_offset:=28 \
+  sweep_speed:=10.0 \
+  step_size:=1.0 \
+  base_x:=0.0 \
+  base_y:=0.0 \
+  base_z:=1.0 \
+  base_roll:=0.0 \
+  base_pitch:=0.0 \
+  base_yaw:=0.0 \
+  servo_x:=0.0 \
+  servo_y:=0.0 \
+  servo_z:=-0.05 \
+  servo_roll:=180.0 \
+  servo_pitch:=0.0 \
+  servo_yaw:=0.0
 ```
 
 Startup sequence:
@@ -79,7 +105,7 @@ Startup sequence:
 |---|---|
 | t = 0 s | RPLidar S3 driver + Arduino serial bridge |
 | t = 2 s | Servo manager (waits for serial port to be ready) |
-| t = 4 s | Cloud builder + RViz2 + save_cloud |
+| t = 4 s | Cloud builder + save_cloud + RViz2 or rosbag recorder |
 
 If any node exits unexpectedly, a crash message with a hint is printed to the terminal.
 
@@ -96,33 +122,74 @@ All arguments have sensible defaults — only override what you need.
 | `sweep_speed` | `10.0` | Servo movement speed in degrees per second |
 | `step_size` | `1.0` | Degrees moved per timer tick; use `< 1.0` for finer angular sampling |
 
-#### TF / mount parameters
+#### Output mode
 
-These describe where and how the servo is physically mounted relative to `base_link`.
+| Argument | Default | Description |
+|---|---|---|
+| `output_mode` | `rviz` | `rviz` — open RViz2 for live visualisation; `rosbag` — record topics to disk (headless, good for drone use) |
+| `bag_path` | `~/ros2_bags/scan` | Output path for the rosbag (only used when `output_mode:=rosbag`). `ros2 bag` appends a timestamp suffix automatically |
+
+Topics recorded in rosbag mode: `/scan`, `/full_cloud`, `/scan_complete`, `/tf`, `/tf_static`, `/servo_serial`.
+
+#### Base link parameters
+
+These place the robot/drone body (`base_link`) in the world (`map`) frame.
+
+| Argument | Default | Description |
+|---|---|---|
+| `base_x` | `0.0` | X position of `base_link` relative to `map` (metres) |
+| `base_y` | `0.0` | Y position of `base_link` relative to `map` (metres) |
+| `base_z` | `1.0` | Z position (height) of `base_link` relative to `map` (metres) |
+| `base_roll` | `0.0` | Roll of `base_link` relative to `map` (degrees) |
+| `base_pitch` | `0.0` | Pitch of `base_link` relative to `map` (degrees) |
+| `base_yaw` | `0.0` | Yaw of `base_link` relative to `map` (degrees) |
+
+#### Servo mount parameters
+
+These describe where and how the lidar+servo assembly is physically mounted relative to `base_link`.
 
 | Argument | Default | Description |
 |---|---|---|
 | `servo_x` | `0.0` | X offset of `servo_link` relative to `base_link` (metres) |
 | `servo_y` | `0.0` | Y offset of `servo_link` relative to `base_link` (metres) |
-| `servo_z` | `0.05` | Z (height) offset of `servo_link` relative to `base_link` (metres) |
-| `servo_roll` | `0.0` | Roll of `servo_link` relative to `base_link` (degrees) |
+| `servo_z` | `-0.05` | Z offset of `servo_link` relative to `base_link` (metres) — negative because the lidar hangs below the body |
+| `servo_roll` | `180.0` | Roll of `servo_link` relative to `base_link` (degrees) — 180° because the lidar is mounted upside-down |
 | `servo_pitch` | `0.0` | Pitch of `servo_link` relative to `base_link` (degrees) |
 | `servo_yaw` | `0.0` | Yaw of `servo_link` relative to `base_link` (degrees) |
 
-Example — servo mounted 10 cm high, rotated 90° yaw:
+Example — live visualisation (default), drone at 5 m altitude with 90° yaw:
 
 ```bash
 ros2 launch servo_tf_demo system_launch.py \
+  output_mode:=rviz \
   center_angle:=127 \
   scan_offset:=28 \
   sweep_speed:=10.0 \
   step_size:=1.0 \
-  servo_x:=0.0 \
-  servo_y:=0.0 \
-  servo_z:=0.10 \
-  servo_roll:=0.0 \
-  servo_pitch:=0.0 \
-  servo_yaw:=90.0
+  base_x:=0.0 \
+  base_y:=0.0 \
+  base_z:=5.0 \
+  base_roll:=0.0 \
+  base_pitch:=0.0 \
+  base_yaw:=90.0
+```
+
+Example — headless rosbag recording (drone / Jetson use):
+
+```bash
+ros2 launch servo_tf_demo system_launch.py \
+  output_mode:=rosbag \
+  bag_path:=/home/user/ros2_bags/scan \
+  center_angle:=127 \
+  scan_offset:=28 \
+  sweep_speed:=10.0 \
+  step_size:=1.0 \
+  base_x:=0.0 \
+  base_y:=0.0 \
+  base_z:=5.0 \
+  base_roll:=0.0 \
+  base_pitch:=0.0 \
+  base_yaw:=0.0
 ```
 
 ---
