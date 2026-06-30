@@ -1,0 +1,171 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /ScanB_Current1
+        - /ScanA_Aligned1
+        - /Merged1
+        - /TF1
+        - /DronePose1
+        - /DroneMarker1
+    Tree Height: 700
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Enabled: true
+      Name: Grid
+      Alpha: 0.5
+      Cell Size: 0.5
+      Color: 80; 80; 80
+      Line Style:
+        Line Width: 0.03
+        Value: Lines
+      Normal Cell Count: 0
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Plane: XY
+      Plane Cell Count: 20
+      Reference Frame: <Fixed Frame>
+      Value: true
+
+    - Class: rviz_default_plugins/PointCloud2
+      Enabled: true
+      Name: ScanB_Current
+      Alpha: 1
+      Color Transformer: RGB8
+      Style: Points
+      Size (Pixels): 2
+      Size (m): 0.01
+      Decay Time: 0
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /localize/scan_b
+      Use Fixed Frame: true
+      Value: true
+
+    - Class: rviz_default_plugins/PointCloud2
+      Enabled: true
+      Name: ScanA_Aligned
+      Alpha: 1
+      Color Transformer: RGB8
+      Style: Points
+      Size (Pixels): 2
+      Size (m): 0.01
+      Decay Time: 0
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /localize/scan_a_aligned
+      Use Fixed Frame: true
+      Value: true
+
+    - Class: rviz_default_plugins/PointCloud2
+      Enabled: false
+      Name: Merged
+      Alpha: 0.8
+      Color Transformer: RGB8
+      Style: Points
+      Size (Pixels): 2
+      Size (m): 0.01
+      Decay Time: 0
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /localize/merged
+      Use Fixed Frame: true
+      Value: true
+
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Name: TF
+      Frame Timeout: 15
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Marker Scale: 0.5
+      Value: true
+
+    - Class: rviz_default_plugins/Pose
+      Enabled: true
+      Name: DronePose
+      Alpha: 1
+      Axes Length: 0.5
+      Axes Radius: 0.03
+      Color: 255; 128; 0
+      Head Length: 0.1
+      Head Radius: 0.05
+      Shaft Length: 0.5
+      Shaft Radius: 0.025
+      Shape: Arrow
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /localize/drone_pose
+      Use Fixed Frame: true
+      Value: true
+
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: DroneMarker
+      Namespaces:
+        localize: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /localize/drone_marker
+      Use Fixed Frame: true
+      Value: true
+
+  Enabled: true
+  Global Options:
+    Background Color: 25; 25; 25
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+      Line color: 128; 128; 0
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 8
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Name: Current View
+      Near Clip Distance: 0.01
+      Pitch: 0.9
+      Yaw: 0.785398
+      Target Frame: map
+      Value: Orbit (rviz)
+    Saved: ~
